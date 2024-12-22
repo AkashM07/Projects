@@ -1,0 +1,216 @@
+# Arduino Code
+
+// pins
+const int photoRes_pin = A0; //white wire
+const int led_pin = 8; // orange wire
+const int pot_pin = A2; // yellow wire
+const int button_pin = 7; // green wire
+const int buzzer_pin = 10; // blue wire
+const int servo_pin = 9; // purple wire
+const int changeMode_pin = 4; // gray wire
+
+// misc
+const float motorDelay = 10000; 
+
+// variable
+float photoRes_reading, pot_reading, control_range;
+char progress_bar; // changes based on stage of game
+
+int button_state; // 1 or 0 based on button click
+int brightnessMode; // 1 or 0 based on what background user wants
+boolean lightMode = true;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(photoRes_pin, INPUT); // pin A0 reads photoresistor analog
+  pinMode(led_pin, OUTPUT); // pin 8 outputs photoresistor into LED
+  pinMode(pot_pin, INPUT); // pin A2 reads potentiometer analog
+  pinMode(button_pin, INPUT); // pin 7 reads in the state of the button
+  pinMode(buzzer_pin, OUTPUT); // pin 10 PWM uses buzzer to output sound
+  pinMode(changeMode_pin, OUTPUT); // pin 4 reads in state of light-dark transition button
+
+  // initialize servo location to 0 degrees
+  control_range = 2600;
+  rotateServo(control_range);
+}
+
+void loop() {
+
+  // Reads photoresistor and outputs onto LED, sets ledOnOff variable
+  photoRes_reading = (float)analogRead(photoRes_pin)/1023*5;
+  //Serial.print("PhotoRes: "); Serial.print(photoRes_reading);
+  turnLEDOnOff(photoRes_reading);
+
+  // Reads potentiometer between 0 and 1023 (10-bit)
+  pot_reading = analogRead(pot_pin);  
+  //Serial.print(", Pot: "); Serial.print(pot_reading);
+
+  // Prints the button's state and sets variable to 1 or 0
+  setButtonState();
+
+  // every time button is pressed, lightMode should flip
+  if (digitalRead(4) == HIGH) {
+    lightMode = !lightMode;
+    //Serial.print(String(lightMode));
+    if (lightMode) {
+      brightnessMode = 1;
+    } else {
+      brightnessMode = 0;
+    }
+  } 
+
+  String processingArray = String(brightnessMode) + "\t" + String(button_state) + "\t" + String(pot_reading);
+  
+  Serial.println(processingArray);
+
+  if (Serial.available()) {
+    progress_bar = Serial.read();
+  }
+  
+  if (progress_bar == '1') {
+    //Serial.print("Level 1!");
+    control_range = 1900;
+    
+  } else if (progress_bar == '2') {
+    //Serial.print("Level 2!");
+    control_range = 1350;
+    
+  } else if (progress_bar == '3') {
+    //Serial.print("Level 3!");
+    control_range = 800;
+    
+  } else if (progress_bar == '4') {
+    //Serial.print("3: Game over!"); // project game over screen in processing after print
+    control_range = 500;
+    rotateServo(control_range); // urgency to rotate before song plays
+    playBuzzer(); // play Seven Nation Army
+    
+  } else {
+    //Serial.print("error!");
+  }
+  rotateServo(control_range); // calls servo function and rotates based on processing response
+
+  delay(100);
+  //Serial.println();
+}
+
+/*
+ * Flips the LED on or off depending on the photoresistor reading compared to 3.5V
+ */
+void turnLEDOnOff(float photoRes_reading){ 
+  // more light -> less resistance -> more voltage
+
+  //Serial.print(photoRes_reading);
+  if(photoRes_reading > 4) { // LED on -> recommend light mode
+    digitalWrite(8, HIGH);
+    delay(100);
+  } else { // LED off -> recommend dark mode
+    digitalWrite(8, LOW);
+    delay(100);
+  }
+}
+
+/*
+ * Prints the state of the button (returns HIGH -> pressed, returns LOW = unpressed)
+ */
+void setButtonState() {
+  //Serial.print(", Button State: ");
+  if (digitalRead(7) == HIGH) {
+    //Serial.print("1"); // button pressed
+    button_state = 1;
+  } else {
+    //Serial.print("0"); // button NOT pressed
+    button_state = 0;
+  }
+}
+
+/*
+ * Plays Seven Nation Army intro
+ */
+void playBuzzer() {
+
+  // first part
+  tone(buzzer_pin, 2000); // 2kHz
+  delay(600);
+  noTone(buzzer_pin); // no sound
+  delay(200);
+
+  tone(buzzer_pin, 1800);
+  delay(300);
+  noTone(buzzer_pin);
+  delay(100);
+
+  tone(buzzer_pin, 1700);
+  delay(300);
+  noTone(buzzer_pin);
+  delay(100);
+
+  tone(buzzer_pin, 1600);
+  delay(300);
+  noTone(buzzer_pin);
+  delay(100);
+
+  tone(buzzer_pin, 1300);
+  delay(700);
+  noTone(buzzer_pin);
+  delay(100);
+  
+  tone(buzzer_pin, 1300);
+  delay(700);
+  noTone(buzzer_pin);
+  delay(100);
+
+  // second part
+  tone(buzzer_pin, 2000); // 1kHz
+  delay(600);
+  noTone(buzzer_pin); // no sound
+  delay(200);
+
+  tone(buzzer_pin, 2100);
+  delay(300);
+  noTone(buzzer_pin);
+  delay(100);
+
+  tone(buzzer_pin, 1700);
+  delay(300);
+  noTone(buzzer_pin);
+  delay(100);
+
+  tone(buzzer_pin, 1600);
+  delay(300);
+  noTone(buzzer_pin);
+  delay(100);
+
+  tone(buzzer_pin, 1500);
+  delay(300);
+  noTone(buzzer_pin);
+  delay(100);
+
+  tone(buzzer_pin, 1700);
+  delay(300);
+  noTone(buzzer_pin);
+  delay(100);
+
+  tone(buzzer_pin, 1450);
+  delay(300);
+  noTone(buzzer_pin);
+  delay(100);
+  
+  tone(buzzer_pin, 1300);
+  delay(400);
+  noTone(buzzer_pin);
+  delay(100);
+
+  delay(1000);
+}
+
+/*
+ * Rotates servo to the correct position based on stage. 
+ * Higher duty cycle -> higher angle (delay between 500-2600 for my servo)
+ */
+void rotateServo(int progress_bar) {
+  digitalWrite(servo_pin, HIGH);
+  delayMicroseconds(control_range);
+  digitalWrite(servo_pin, LOW);
+  delayMicroseconds(motorDelay);
+}
